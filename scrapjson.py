@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-import json  # Library untuk memproses JSON
+import json
 import time
 import os
 from urllib.parse import urljoin
@@ -36,7 +36,13 @@ def jalankan_scraper(url_indeks):
                 judul = soup_detail.find('h1')
                 teks_judul = judul.text.strip() if judul else "Tanpa Judul"
                 
-                # 2. Ambil Isi Berita
+                # ---------------------------------------------------------
+                # 2. Ambil Tanggal Publish (BARU)
+                # ---------------------------------------------------------
+                tanggal = soup_detail.find('div', class_='detail__date')
+                teks_tanggal = tanggal.text.strip() if tanggal else "Tanggal tidak ditemukan"
+                
+                # 3. Ambil Isi Berita
                 konten_artikel = soup_detail.find('div', class_='detail__body-text')
                 
                 if konten_artikel:
@@ -53,9 +59,10 @@ def jalankan_scraper(url_indeks):
                 else:
                     isi_berita = "Gagal menemukan struktur isi berita"
 
-                # 3. Simpan ke format Dictionary Python (yang akan diubah jadi JSON)
+                # 4. Simpan ke Dictionary (termasuk Tanggal)
                 hasil_data.append({
                     'Judul': teks_judul,
+                    'Tanggal': teks_tanggal,
                     'URL': url_berita,
                     'Isi': isi_berita
                 })
@@ -66,16 +73,12 @@ def jalankan_scraper(url_indeks):
             except Exception as e:
                 print(f"[!] Gagal di link {url_berita}: {e}")
 
-        # ---------------------------------------------------------
-        # PERUBAHAN: Menyimpan data ke dalam file JSON
-        # ---------------------------------------------------------
+        # Simpan ke dalam file JSON
         if hasil_data:
             os.makedirs('./result', exist_ok=True)
-            file_path = './result/kumpulan_berita.json' # Ekstensi diubah ke .json
+            file_path = './result/kumpulan_berita.json'
             
             with open(file_path, 'w', encoding='utf-8') as f:
-                # indent=4 membuat JSON lebih mudah dibaca manusia (pretty print)
-                # ensure_ascii=False memastikan karakter bahasa Indonesia/unik tidak berubah jadi kode
                 json.dump(hasil_data, f, indent=4, ensure_ascii=False)
                 
             print(f"\n[OK] Proses selesai! Data disimpan ke '{file_path}'")
@@ -89,5 +92,5 @@ def jalankan_scraper(url_indeks):
 # =====================================================================
 # BAGIAN PENGATURAN PENGGUNA
 # =====================================================================
-TARGET_URL = "https://news.detik.com/" 
+TARGET_URL = "https://news.detik.com/indeks?page=*&date=04/07/2026" 
 jalankan_scraper(TARGET_URL)
