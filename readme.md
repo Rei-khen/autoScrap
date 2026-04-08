@@ -1,0 +1,1 @@
+ini adalah setting setup awal untuk program setup program scrapping
