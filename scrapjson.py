@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-import csv
+import json  # Library untuk memproses JSON
 import time
 import os
 from urllib.parse import urljoin
@@ -36,34 +36,24 @@ def jalankan_scraper(url_indeks):
                 judul = soup_detail.find('h1')
                 teks_judul = judul.text.strip() if judul else "Tanpa Judul"
                 
-                # ---------------------------------------------------------
-                # 2. Ambil Isi Berita (Spesifik Detik.com dari HTML Anda)
-                # ---------------------------------------------------------
-                # Cari kotak utama yang menampung seluruh berita
+                # 2. Ambil Isi Berita
                 konten_artikel = soup_detail.find('div', class_='detail__body-text')
                 
                 if konten_artikel:
-                    # Langkah A: Daftar elemen 'sampah' yang mengotori teks berita
-                    class_sampah = [
-                        'noncontent',             # Kotak "Baca Juga" & Sisipan Video
-                        'parallaxindetail',       # Iklan di tengah artikel
-                        'staticdetail_container'  # Iklan lainnya
-                    ]
-                    
-                    # Langkah B: Cari dan hancurkan elemen sampah tersebut dari memori HTML
+                    # Bersihkan elemen sampah (Iklan, Video, dll)
+                    class_sampah = ['noncontent', 'parallaxindetail', 'staticdetail_container']
                     for sampah in konten_artikel.find_all('div', class_=class_sampah):
                         sampah.decompose()
                         
-                    # Langkah C: Hapus juga elemen tambahan seperti style/script jika ada
                     for elemen_tersembunyi in konten_artikel.find_all(['style', 'script']):
                         elemen_tersembunyi.decompose()
 
-                    # Langkah D: Sedot seluruh teks yang tersisa
+                    # Sedot seluruh teks yang tersisa
                     isi_berita = konten_artikel.get_text(separator='\n\n', strip=True)
                 else:
                     isi_berita = "Gagal menemukan struktur isi berita"
 
-                # 3. Simpan ke memori sementara
+                # 3. Simpan ke format Dictionary Python (yang akan diubah jadi JSON)
                 hasil_data.append({
                     'Judul': teks_judul,
                     'URL': url_berita,
@@ -71,22 +61,23 @@ def jalankan_scraper(url_indeks):
                 })
 
                 print(f"[{i+1}] Sukses mengambil: {teks_judul[:40]}...")
-                
-                # Jeda 1 detik
                 time.sleep(1) 
 
             except Exception as e:
                 print(f"[!] Gagal di link {url_berita}: {e}")
 
-        # Simpan semua data ke file CSV
+        # ---------------------------------------------------------
+        # PERUBAHAN: Menyimpan data ke dalam file JSON
+        # ---------------------------------------------------------
         if hasil_data:
             os.makedirs('./result', exist_ok=True)
-            file_path = './result/kumpulan_berita.csv'
+            file_path = './result/kumpulan_berita.json' # Ekstensi diubah ke .json
             
-            with open(file_path, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=['Judul', 'URL', 'Isi'])
-                writer.writeheader()
-                writer.writerows(hasil_data)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                # indent=4 membuat JSON lebih mudah dibaca manusia (pretty print)
+                # ensure_ascii=False memastikan karakter bahasa Indonesia/unik tidak berubah jadi kode
+                json.dump(hasil_data, f, indent=4, ensure_ascii=False)
+                
             print(f"\n[OK] Proses selesai! Data disimpan ke '{file_path}'")
         else:
             print("\n[!] Tidak ada data yang berhasil diambil.")
