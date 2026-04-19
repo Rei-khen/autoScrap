@@ -24,14 +24,15 @@ from urllib.parse import urljoin
 # ─────────────────────────────────────────────
 CONFIG = {
     # Kanal yang tersedia (sesuaikan slug & ID):
-    #   nasional=12, hukum-kriminal=11, ekonomi=2, internasional=4
+    #   nasional=3, hukum-kriminal=11, ekonomi=2, politik=4
     #   teknologi=16, olahraga=6, hiburan=8, gaya-hidup=10
-    "kanal_slug": "hukum-kriminal",
-    "kanal_id":   11,
+    #   peristiwa=18
+    "kanal_slug": "nasional",
+    "kanal_id":   3,
 
     # Rentang tanggal (format YYYY/MM/DD)
-    "tanggal_mulai":   "2026/04/12",
-    "tanggal_selesai": "2026/04/12",
+    "tanggal_mulai":   "2026/04/15",
+    "tanggal_selesai": "2026/04/15",
 
     # Jeda antar request (detik) – jangan terlalu cepat
     "delay_antar_halaman":  1.5,
