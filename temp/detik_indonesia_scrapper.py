@@ -97,8 +97,8 @@ def jalankan_scraper_otomatis(url_template):
 
     # Simpan ke JSON setelah While Loop selesai (Break)
     if hasil_data:
-        os.makedirs('./result', exist_ok=True)
-        file_path = './result/kumpulan_berita.json'
+        os.makedirs('../result', exist_ok=True)
+        file_path = '../result/kumpulan_berita.json'
         
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(hasil_data, f, indent=4, ensure_ascii=False)

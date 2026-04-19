@@ -43,7 +43,7 @@ CONFIG = {
     "ambil_isi_artikel": True,
 
     # File output
-    "output_file": "./result/cnn_indonesia_berita.json",
+    "output_file": "../result/cnn_indonesia_berita.json",
 }
 # ─────────────────────────────────────────────
 
