@@ -97,8 +97,8 @@ def jalankan_scraper_otomatis(url_template):
 
     # Simpan ke JSON setelah While Loop selesai (Break)
     if hasil_data:
-        os.makedirs('./result', exist_ok=True)
-        file_path = './result/kumpulan_berita.json'
+        os.makedirs('../result', exist_ok=True)
+        file_path = '../result/kumpulan_berita.json'
         
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(hasil_data, f, indent=4, ensure_ascii=False)
@@ -112,5 +112,5 @@ def jalankan_scraper_otomatis(url_template):
 # BAGIAN PENGATURAN PENGGUNA
 # =====================================================================
 # Tidak perlu lagi memasukkan batas maksimal halaman!
-TARGET_URL = "https://news.detik.com/indeks?page={}&date=04/07/2026" 
+TARGET_URL = "https://www.detik.com/search/searchnews?query=politik&result_type=latest&fromdatex=12/04/2026&todatex=12/04/2026" 
 jalankan_scraper_otomatis(TARGET_URL)
