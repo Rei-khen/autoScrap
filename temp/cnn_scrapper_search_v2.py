@@ -64,7 +64,7 @@ CONFIG = {
     "ambil_detail_artikel": True,
 
     # File output
-    "output_file": "cnn_search_result.json",
+    "output_file": "./result/cnn_search_result.json",
 }
 # ─────────────────────────────────────────────────────────────
 
