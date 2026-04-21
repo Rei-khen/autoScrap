@@ -40,7 +40,7 @@ CONFIG = {
     "searches": [
         {
             "query":    "iran",
-            "kanal":    "",
+            # "kanal":    "",
             "fromdate": "20/04/2026",
             "todate":   "20/04/2026",
         },
@@ -69,7 +69,7 @@ CONFIG = {
     "ambil_detail_artikel": True,
 
     # File output
-    "output_file": "./result/cnn_search_result_v3.json",
+    "output_file": "./result/cnn_search_result_v4.json",
 }
 # ─────────────────────────────────────────────────────────────
 
@@ -347,6 +347,7 @@ def main():
                     "isi":              isi,
                     "tanggalPublikasi": tgl,
                     "media":            MEDIA_NAME,
+                    "_sort_key":        item.get("dtnewsdate", ""),
                 })
 
             if lolos_di_halaman == 0:
@@ -358,6 +359,11 @@ def main():
                 log.info(f"  Halaman {page}/{total_pages}: {lolos_di_halaman} artikel lolos")
 
         log.info(f"  Total artikel lolos: {artikel_lolos}")
+
+    # Sort: terbaru → terlama (sesuai urutan tampilan di website CNN Indonesia)
+    # Gunakan dtnewsdate dari API sebagai sort key karena tanggalPublikasi
+    # bisa berformat string Indonesia ("Jumat, 18 Apr 2026 22:15 WIB") yang sulit di-sort
+    results.sort(key=lambda x: x.pop("_sort_key", ""), reverse=True)
 
     # Simpan JSON
     with open(cfg["output_file"], "w", encoding="utf-8") as f:
