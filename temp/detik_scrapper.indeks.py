@@ -33,8 +33,8 @@ CONFIG = {
 
     # Tanggal yang ingin di-scrape (format YYYY-MM-DD).
     #
-    # Satu hari  : "tanggal": "2026-04-20"
-    # Range      : "tanggal": ["2026-04-18", "2026-04-20"]  (inklusif)
+    # Satu hari  : "tanggal": "2026-05-03"
+    # Range      : "tanggal": ["2026-04-30", "2026-05-03"]  (inklusif)
     # Terbaru    : "tanggal": None  → tanpa filter tanggal
     "tanggal": "2026-05-03",
 
@@ -50,31 +50,31 @@ CONFIG = {
 }
 # ─────────────────────────────────────────────────────────────
 
-# Mapping nama kanal → slug URL indeks
+# Mapping nama kanal → slug URL
 KANAL_MAP = {
-    "semua":                ("",                          "semua kanal"),
-    "berita":               ("berita",                   "Berita"),
-    "daerah":               ("daerah",                   "Daerah"),
-    "internasional":        ("internasional",             "Internasional"),
-    "melindungi-tuah-marwah": ("melindungi-tuah-marwah", "Melindungi Tuah Marwah"),
-    "kolom":                ("kolom",                    "Kolom"),
-    "pro-kontra":           ("pro-kontra",               "Pro Kontra"),
-    "foto-news":            ("foto-news",                "Foto News"),
-    "detiktv":              ("detiktv",                  "DetikTV"),
-    "bbc":                  ("bbc",                      "BBC"),
-    "australiaplus":        ("australiaplus",             "Australia Plus"),
-    "jawabarat":            ("jawabarat",                "Jawa Barat"),
-    "jawatengah":           ("jawatengah",               "Jawa Tengah"),
-    "jawatimur":            ("jawatimur",                "Jawa Timur"),
-    "suara-pembaca":        ("suara-pembaca",            "Suara Pembaca"),
-    "investigasi":          ("investigasi",              "Investigasi"),
-    "intermeso":            ("intermeso",                "Intermeso"),
-    "crimestory":           ("crimestory",               "Crime Story"),
-    "pemilu":               ("pemilu",                   "Pemilu"),
-    "pilkada":              ("pilkada",                  "Pilkada"),
-    "bangun-indonesia":     ("bangun-indonesia",         "Bangun Indonesia"),
-    "jabodetabek":          ("jabodetabek",              "Jabodetabek"),
-    "hukum":                ("hukum",                    "Hukum"),
+    "semua":                  "",
+    "berita":                 "berita",
+    "daerah":                 "daerah",
+    "internasional":          "internasional",
+    "melindungi-tuah-marwah": "melindungi-tuah-marwah",
+    "kolom":                  "kolom",
+    "pro-kontra":             "pro-kontra",
+    "foto-news":              "foto-news",
+    "detiktv":                "detiktv",
+    "bbc":                    "bbc",
+    "australiaplus":          "australiaplus",
+    "jawabarat":              "jawabarat",
+    "jawatengah":             "jawatengah",
+    "jawatimur":              "jawatimur",
+    "suara-pembaca":          "suara-pembaca",
+    "investigasi":            "investigasi",
+    "intermeso":              "intermeso",
+    "crimestory":             "crimestory",
+    "pemilu":                 "pemilu",
+    "pilkada":                "pilkada",
+    "bangun-indonesia":       "bangun-indonesia",
+    "jabodetabek":            "jabodetabek",
+    "hukum":                  "hukum",
 }
 
 BASE_URL   = "https://news.detik.com"
@@ -97,11 +97,7 @@ HEADERS = {
     "Referer": BASE_URL,
 }
 
-SESSION = requests.Session()
-SESSION.headers.update(HEADERS)
 
-# Pola URL artikel Detik: /kanal/YYYYMMDD-XXXXXX/slug
-ARTICLE_PATTERN = re.compile(r"/[\w-]+/d-\d+/[\w-]+")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -126,15 +122,17 @@ def resolve_kanals(kanal_cfg) -> list:
 
 def resolve_dates(tanggal_cfg) -> list:
     """
-    None              → [None]
-    "YYYY-MM-DD"      → ["DD/MM/YYYY"]   (format Detik)
-    ["YYYY-MM-DD","YYYY-MM-DD"] → range inklusif
+    Konversi input tanggal → list format MM/DD/YYYY (format Detik).
+
+    None                          → [None]
+    "YYYY-MM-DD"                  → ["MM/DD/YYYY"]
+    ["YYYY-MM-DD", "YYYY-MM-DD"]  → range inklusif
     """
     if tanggal_cfg is None:
         return [None]
 
     fmt_in  = "%Y-%m-%d"
-    fmt_out = "%d/%m/%Y"   # format Detik: 05/03/2026
+    fmt_out = "%m/%d/%Y"   # ← Detik pakai MM/DD/YYYY bukan DD/MM/YYYY
 
     if isinstance(tanggal_cfg, str):
         dt = datetime.strptime(tanggal_cfg.strip(), fmt_in)
@@ -159,29 +157,28 @@ def resolve_dates(tanggal_cfg) -> list:
 def build_indeks_url(kanal: str, tanggal: str | None, page: int = 1) -> str:
     """
     Bangun URL indeks Detik News.
+    PENTING: parameter date dan page selalu di-include bersamaan
+             agar pagination tidak kehilangan filter tanggal.
 
     Contoh output:
-      https://news.detik.com/berita/indeks
-      https://news.detik.com/berita/indeks?date=20%2F04%2F2026
-      https://news.detik.com/berita/indeks?page=2&date=20%2F04%2F2026
-      https://news.detik.com/indeks                                  (semua kanal)
-      https://news.detik.com/indeks?date=20%2F04%2F2026             (semua kanal + tanggal)
+      https://news.detik.com/berita/indeks?date=05%2F03%2F2026
+      https://news.detik.com/berita/indeks?page=2&date=05%2F03%2F2026
+      https://news.detik.com/indeks                              (semua, terbaru)
+      https://news.detik.com/indeks?date=05%2F03%2F2026         (semua, tanggal)
     """
-    slug = KANAL_MAP[kanal][0]
-
-    if slug:
-        base = f"{BASE_URL}/{slug}/indeks"
-    else:
-        base = f"{BASE_URL}/indeks"
+    slug = KANAL_MAP[kanal]
+    base = f"{BASE_URL}/{slug}/indeks" if slug else f"{BASE_URL}/indeks"
 
     params = {}
     if page > 1:
         params["page"] = str(page)
     if tanggal:
-        params["date"] = tanggal  # urlencode akan encode '/' → '%2F otomatis
+        params["date"] = tanggal
 
     if params:
-        return f"{base}?{urlencode(params)}"
+        # safe='/' agar date=05/03/2026 tidak di-encode jadi date=05%2F03%2F2026
+        # Detik hanya mengenali slash biasa, bukan %2F
+        return f"{base}?{urlencode(params, safe='/')}"
     return base
 
 
@@ -192,7 +189,10 @@ def build_indeks_url(kanal: str, tanggal: str | None, page: int = 1) -> str:
 def get_soup(url: str, retries: int = 3):
     for attempt in range(1, retries + 1):
         try:
-            r = SESSION.get(url, timeout=15)
+            # Buat request BARU setiap kali — jangan pakai Session
+            # Session menyebabkan Detik mengembalikan halaman yang sama
+            # untuk semua page (kemungkinan HTTP/2 connection caching)
+            r = requests.get(url, headers=HEADERS, timeout=15)
             r.raise_for_status()
             return BeautifulSoup(r.text, "html.parser")
         except requests.RequestException as e:
@@ -210,29 +210,34 @@ def get_soup(url: str, retries: int = 3):
 def get_max_page(soup: BeautifulSoup) -> int:
     """
     Deteksi total halaman dari pagination Detik.
-    Detik biasanya punya elemen pagination dengan link ke halaman terakhir.
+    Struktur: <div class="pagination"> dengan link page=N
+    Ambil angka page terbesar dari semua link, kecuali link "last page"
+    yang biasanya melompat jauh (misal page=500).
     """
-    max_p = 1
+    page_nums = []
+    pag = soup.select_one("div.pagination")
+    if not pag:
+        return 1
 
-    # Cari dari link pagination yang mengandung ?page= atau &page=
-    for a in soup.find_all("a", href=True):
+    for a in pag.find_all("a", href=True):
         m = re.search(r"[?&]page=(\d+)", a["href"])
         if m:
-            max_p = max(max_p, int(m.group(1)))
+            num = int(m.group(1))
+            # Abaikan tombol "last" yang biasanya page=500 atau sangat besar
+            # Detik menampilkan max 5 halaman di pagination + tombol Next
+            text = a.get_text(strip=True).lower()
+            if text not in ("next", "prev", "last", "first"):
+                page_nums.append(num)
 
-    # Cari dari teks angka di dalam elemen pagination
-    for sel in [
-        "div.pagination", "ul.pagination",
-        "div[class*='paging']", "div[class*='pagination']",
-        "nav[class*='paging']",
-    ]:
-        pag = soup.select_one(sel)
-        if pag:
-            for txt in pag.stripped_strings:
-                if txt.isdigit():
-                    max_p = max(max_p, int(txt))
+    # Ambil page terbesar yang visible (bukan tombol lompat jauh)
+    # Detik biasanya tampilkan 5 halaman berurutan, jadi max visible << 500
+    if page_nums:
+        # Filter outlier: abaikan nilai yang > 10x nilai terbesar lainnya
+        sorted_nums = sorted(page_nums)
+        filtered = [n for n in sorted_nums if n <= sorted_nums[0] * 20 + 10]
+        return max(filtered) if filtered else 1
 
-    return max_p
+    return 1
 
 
 # ──────────────────────────────────────────────────────────────
@@ -241,11 +246,9 @@ def get_max_page(soup: BeautifulSoup) -> int:
 
 def parse_index_links(soup: BeautifulSoup) -> list:
     """
-    Kumpulkan URL artikel dari halaman indeks Detik News.
-
-    Struktur umum Detik indeks:
-      <article> atau <div class="list-content">
-        <a href="https://news.detik.com/berita/d-XXXXXX/slug">
+    Kumpulkan URL artikel unik dari halaman indeks Detik.
+    Setiap artikel muncul 2x di HTML (dari img dan dari h3.media__title),
+    deduplicate dengan set.
     """
     urls = []
     seen = set()
@@ -253,18 +256,15 @@ def parse_index_links(soup: BeautifulSoup) -> list:
     for a in soup.find_all("a", href=True):
         href = a["href"]
 
-        # Harus cocok pola artikel Detik: /d-XXXXXXX/
+        # Harus pola artikel Detik: /d-XXXXXXX/
         if not re.search(r"/d-\d+/", href):
             continue
 
-        # Abaikan halaman bukan artikel (tag, author, dsb.)
-        if any(x in href for x in [
-            "/tag/", "/author/", "/search/", "#",
-            "javascript:", "mailto:"
-        ]):
+        # Abaikan non-artikel
+        if any(x in href for x in ["/tag/", "/author/", "/search/", "#", "javascript:"]):
             continue
 
-        # Pastikan domain news.detik.com
+        # Harus dari domain news.detik.com
         if href.startswith("http") and "news.detik.com" not in href:
             continue
 
@@ -282,22 +282,18 @@ def parse_index_links(soup: BeautifulSoup) -> list:
 # ──────────────────────────────────────────────────────────────
 
 def parse_tanggal(soup: BeautifulSoup) -> str:
-    """Ekstrak tanggal publikasi dari halaman artikel Detik."""
-    # Selector utama Detik
-    for sel in [
-        "div.detail__date",
-        "span.date",
-        "div[class*='detail-date']",
-        "div[class*='date']",
-        "time",
-    ]:
+    """Ekstrak tanggal publikasi. Selector: div.detail__date"""
+    el = soup.select_one("div.detail__date")
+    if el:
+        return el.get_text(strip=True)
+    # Fallback
+    for sel in ["div[class*='date']", "time"]:
         el = soup.select_one(sel)
         if el:
             val = el.get("datetime") or el.get_text(strip=True)
             if val:
                 return val
-
-    # Fallback: cari pola tanggal di teks
+    # Fallback regex
     teks = soup.get_text(" ", strip=True)
     m = re.search(
         r"(Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu)"
@@ -308,36 +304,27 @@ def parse_tanggal(soup: BeautifulSoup) -> str:
 
 
 def parse_isi(soup: BeautifulSoup) -> str:
-    """Ekstrak isi bersih dari halaman artikel Detik."""
-    # Selector konten artikel Detik
-    content = None
-    for sel in [
-        "div.detail__body-text",
-        "div[class*='detail__body']",
-        "div.itp_bodycontent",
-        "div[class*='article-body']",
-        "article",
-    ]:
-        content = soup.select_one(sel)
-        if content:
-            break
-
+    """Ekstrak isi bersih. Selector utama: div.detail__body-text"""
+    content = soup.select_one("div.detail__body-text")
+    if not content:
+        content = soup.select_one("div.itp_bodycontent")
     if not content:
         return ""
 
-    # Buang elemen iklan dan sampah
-    for junk in content.select(
-        "script, style, iframe, "
-        "div[class*='ads'], div[class*='iklan'], "
-        "div[class*='banner'], div[class*='promo'], "
-        "div[class*='related'], div[class*='rekomendasi'], "
-        "div[class*='embed'], div[class*='social'], "
-        "div[id*='ads'], div[id*='iklan'], "
-        "figure.detail__media-image, "  # gambar
-        "div.detail__body-tag,"          # tag artikel
-        "div[class*='taboola'], div[class*='outbrain']"
-    ):
-        junk.decompose()
+    # Buang elemen iklan dan sampah — selector dipisah agar tidak ada koma trailing
+    junk_selectors = [
+        "script", "style", "iframe",
+        "div[class*='ads']", "div[class*='iklan']",
+        "div[class*='banner']", "div[class*='promo']",
+        "div[class*='related']", "div[class*='rekomendasi']",
+        "div[class*='embed']", "div[class*='social']",
+        "div[id*='ads']", "div[id*='iklan']",
+        "figure", "div.detail__body-tag",
+        "div[class*='taboola']", "div[class*='outbrain']",
+    ]
+    for sel in junk_selectors:
+        for junk in content.select(sel):
+            junk.decompose()
 
     paragraphs = [
         p.get_text(strip=True)
@@ -348,17 +335,14 @@ def parse_isi(soup: BeautifulSoup) -> str:
 
 
 def scrape_article(url: str) -> dict | None:
-    """Scrape satu artikel Detik, return dict atau None."""
     soup = get_soup(url)
     if not soup:
         return None
 
-    # Judul
-    h1 = soup.select_one("h1.detail__title, h1[class*='title'], h1")
+    h1    = soup.select_one("h1.detail__title, h1")
     judul = h1.get_text(strip=True) if h1 else ""
-
-    isi = parse_isi(soup)
-    tgl = parse_tanggal(soup)
+    isi   = parse_isi(soup)
+    tgl   = parse_tanggal(soup)
 
     if not judul and not isi:
         return None
@@ -388,7 +372,7 @@ def main():
         log.error("Tidak ada kanal valid. Periksa CONFIG['kanal'].")
         return []
 
-    log.info(f"Kanal      : {[KANAL_MAP[k][1] for k in kanals]}")
+    log.info(f"Kanal      : {kanals}")
     log.info(f"Tanggal    : {[d or '(terbaru)' for d in dates]}")
     log.info(f"Max halaman: {cfg['max_halaman'] or 'semua'}")
     log.info(f"Total kombinasi: {len(kanals)} kanal × {len(dates)} tanggal")
@@ -396,7 +380,7 @@ def main():
     for kanal in kanals:
         for tanggal in dates:
             tgl_label = tanggal or "(terbaru)"
-            log.info(f"═══ kanal={KANAL_MAP[kanal][1]}  tanggal={tgl_label} ═══")
+            log.info(f"═══ kanal={kanal}  tanggal={tgl_label} ═══")
 
             url_p1 = build_indeks_url(kanal, tanggal, page=1)
             log.info(f"URL: {url_p1}")
@@ -414,6 +398,7 @@ def main():
                     soup = soup1
                 else:
                     time.sleep(cfg["delay_halaman"])
+                    # PENTING: selalu sertakan tanggal di URL halaman berikutnya
                     soup = get_soup(build_indeks_url(kanal, tanggal, page))
                     if not soup:
                         break
