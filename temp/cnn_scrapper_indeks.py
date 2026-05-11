@@ -38,7 +38,7 @@ CONFIG = {
     # Satu hari    : "tanggal": "2026-04-18"
     # Range        : "tanggal": ["2026-04-12", "2026-04-18"]  (inklusif)
     # Tanpa filter : "tanggal": None  → ambil berita terbaru tanpa filter tanggal
-    "tanggal": "2026-04-18",
+    "tanggal": "2026-05-10",
 
     # Batas maksimal halaman per kombinasi kanal+tanggal (None = semua halaman)
     "max_halaman": None,
@@ -247,6 +247,24 @@ def parse_tanggal(soup: BeautifulSoup) -> str:
     return m.group(0) if m else ""
 
 
+def parse_tag(soup: BeautifulSoup) -> list:
+    """
+    Ekstrak daftar tag dari halaman artikel CNN Indonesia.
+    Tag ada di elemen <a href="/tag/..."> di dalam halaman artikel.
+    """
+    tags = []
+    seen = set()
+    for a in soup.find_all("a", href=True):
+        href = a.get("href", "")
+        if "/tag/" not in href:
+            continue
+        tag = a.get_text(strip=True)
+        if tag and tag.lower() not in seen:
+            seen.add(tag.lower())
+            tags.append(tag)
+    return tags
+
+
 def parse_isi(soup: BeautifulSoup) -> str:
     content = soup.select_one("div.detail-text")
     if not content:
@@ -273,6 +291,7 @@ def scrape_article(url: str) -> dict | None:
     judul = h1.get_text(strip=True) if h1 else ""
     isi   = parse_isi(soup)
     tgl   = parse_tanggal(soup)
+    tag   = parse_tag(soup)
     if not judul and not isi:
         return None
     return {
@@ -281,6 +300,7 @@ def scrape_article(url: str) -> dict | None:
         "isi":              isi,
         "tanggalPublikasi": tgl,
         "media":            MEDIA_NAME,
+        "tag":              tag,
     }
 
 
