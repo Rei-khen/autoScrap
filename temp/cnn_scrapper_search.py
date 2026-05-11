@@ -40,9 +40,9 @@ CONFIG = {
     "searches": [
         {
             "query":    "iran",
-            # "kanal":    "nasional",
-            "fromdate": "20/04/2026",
-            "todate":   "20/04/2026",
+            "kanal":    "",
+            "fromdate": "10/05/2026",
+            "todate":   "10/05/2026",
         },
         # Contoh lain:
         # {"query": "ekonomi"},
@@ -226,6 +226,23 @@ def passes_query_filter(judul: str, query: str) -> bool:
 # Parse isi artikel
 # ──────────────────────────────────────────────────────────────
 
+def parse_tag_from_api(item: dict) -> list:
+    """
+    Ekstrak tag dari field API.
+    Field strtag format: "tag1|tag2|tag3"
+    Field strkeyword_name format: "tag1, tag2, tag3"
+    """
+    # Coba field strtag dulu (pipe-separated)
+    strtag = item.get("strtag", "")
+    if strtag:
+        return [t.strip() for t in strtag.split("|") if t.strip()]
+    # Fallback ke strkeyword_name (comma-separated)
+    kw = item.get("strkeyword_name", "")
+    if kw:
+        return [t.strip() for t in kw.split(",") if t.strip()]
+    return []
+
+
 def clean_html(html_str: str) -> str:
     """HTML strisi → plain text (fallback jika tidak ambil detail)."""
     if not html_str:
@@ -237,11 +254,11 @@ def clean_html(html_str: str) -> str:
     return "\n\n".join(paragraphs) if paragraphs else soup.get_text(separator="\n", strip=True)
 
 
-def scrape_article_detail(url: str) -> tuple[str, str]:
-    """Buka halaman artikel → return (isi_bersih, tanggal_publikasi)."""
+def scrape_article_detail(url: str) -> tuple[str, str, list]:
+    """Buka halaman artikel → return (isi_bersih, tanggal_publikasi, tag)."""
     soup = get_soup(url)
     if not soup:
-        return "", ""
+        return "", "", []
 
     isi = ""
     content_div = soup.select_one("div.detail-text")
@@ -268,7 +285,18 @@ def scrape_article_detail(url: str) -> tuple[str, str]:
         if el:
             tgl = el.get("datetime") or el.get_text(strip=True)
 
-    return isi, tgl
+    # Ekstrak tag dari <a href="/tag/...">
+    tags = []
+    seen_tags = set()
+    for a in soup.find_all("a", href=True):
+        if "/tag/" not in a.get("href", ""):
+            continue
+        tag = a.get_text(strip=True)
+        if tag and tag.lower() not in seen_tags:
+            seen_tags.add(tag.lower())
+            tags.append(tag)
+
+    return isi, tgl, tags
 
 
 # ──────────────────────────────────────────────────────────────
@@ -372,14 +400,17 @@ def main():
 
                 if cfg["ambil_detail_artikel"]:
                     time.sleep(cfg["delay_artikel"])
-                    isi, tgl = scrape_article_detail(url)
+                    isi, tgl, tag = scrape_article_detail(url)
                     if not isi:
                         isi = clean_html(item.get("strisi", ""))
                     if not tgl:
                         tgl = item.get("dtnewsdate", "")
+                    if not tag:
+                        tag = parse_tag_from_api(item)
                 else:
                     isi = clean_html(item.get("strisi", ""))
                     tgl = item.get("dtnewsdate", "")
+                    tag = parse_tag_from_api(item)
 
                 results.append({
                     "url":              url,
@@ -387,6 +418,7 @@ def main():
                     "isi":              isi,
                     "tanggalPublikasi": tgl,
                     "media":            MEDIA_NAME,
+                    "tag":              tag,
                     "_sort_key":        item.get("dtnewsdate", ""),
                 })
 
